@@ -21,19 +21,18 @@ class EchoBot(ClientXMPP):
             await asyncio.sleep(0.001)  # Keep the event loop running
             self.gui.root.update()  # Call update() on the root window
 
-    async def handle_send_message(self, message):
-        self.send_msg(mto='lei21752-test@alumchat.lol', mbody=message)
+    async def handle_send_message(self, message, to):
+        self.send_msg(mto=to, mbody=message)
         username = self.jid.split('@')[0]
         self.gui.display_message(f"{username}\n{message}")  # Mostrar el mensaje en la GUI
 
     def message(self, message):
         if message["type"] == "chat":
-            emitter = str(message["from"])
-            actual_name = emitter.split("/")[0]
-            message_body = message["body"]
-            print(f"Mensaje recibido de {actual_name}: {message_body}")  # Línea de depuración
-            self.gui.display_message(f"[{actual_name}]\n{message_body}")
-
+            emitter = str(message["from"]).split('/')[0]
+            if self.gui.target_user and emitter == self.gui.target_user:
+                actual_name = emitter.split("/")[0]
+                message_body = message["body"]
+                self.gui.display_message(f"[{actual_name}]\n{message_body}")
 
     def send_msg(self, mto: str, mbody: str):
         self.send_message(mto, mbody)

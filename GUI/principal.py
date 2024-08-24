@@ -12,6 +12,7 @@ from connection.conn import start_xmpp  # Importamos la función que inicia la c
 class ChatGUI:
     def __init__(self):
         self.xmpp = None  # La conexión XMPP se asignará después
+        self.target_user = None  # Variable para almacenar el usuario objetivo
 
         self.root = tk.Tk()
         self.root.title("XMPP Chat")
@@ -30,10 +31,10 @@ class ChatGUI:
         self.chat_buttons_frame = tk.Frame(self.left_frame, bg='#f0f0f0')
         self.chat_buttons_frame.pack(pady=10)
 
-        self.new_chat_button = tk.Button(self.chat_buttons_frame, text="Nuevo Chat", bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat", width=12)
+        self.new_chat_button = tk.Button(self.chat_buttons_frame, text="Nuevo Chat", bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat", width=12, command=self.new_chat)
         self.new_chat_button.pack(side=tk.LEFT, padx=(0, 5))
 
-        self.group_chat_button = tk.Button(self.chat_buttons_frame, text="Chat Grupal", bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat", width=12)
+        self.group_chat_button = tk.Button(self.chat_buttons_frame, text="Chat Grupal", bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat", width=12, command=self.new_group_chat)
         self.group_chat_button.pack(side=tk.LEFT)
 
         # Contenedor de Detalle de Contacto
@@ -89,11 +90,51 @@ class ChatGUI:
         self.send_button = tk.Button(self.entry_frame, text="Enviar", command=self.send_message, width=10, bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat")
         self.send_button.pack(side=tk.RIGHT)
 
+    def clear_chat(self):
+        """Limpia el área de texto del chat"""
+        self.text_area.config(state=tk.NORMAL)
+        self.text_area.delete('1.0', tk.END)
+        self.text_area.config(state=tk.DISABLED)
+
+    def new_chat(self):
+        """Maneja la creación de un nuevo chat abriendo una ventana emergente personalizada"""
+        self.clear_chat()  # Limpiar el área de chat cuando se inicia un nuevo chat
+        self.target_user = None  # Resetear usuario objetivo
+
+        # Crear la ventana emergente
+        popup = tk.Toplevel(self.root)
+        popup.title("Nuevo Chat")
+        popup.geometry("400x200")  # Tamaño de la ventana emergente
+        popup.configure(bg='#e5e5e5')
+
+        # Etiqueta
+        label = tk.Label(popup, text="Ingrese Usuario:", font=("Helvetica", 12), bg='#e5e5e5')
+        label.pack(pady=20)
+
+        # Entrada de texto
+        entry = tk.Entry(popup, font=("Helvetica", 12))
+        entry.pack(pady=5, padx=20, fill=tk.X)
+
+        # Botón para iniciar chat
+        def on_confirm():
+            self.target_user = entry.get()
+            if self.target_user:
+                self.root.title(f"Chateando con {self.target_user}")
+                popup.destroy()
+
+        button = tk.Button(popup, text="Iniciar", bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat", command=on_confirm)
+        button.pack(pady=5)
+
+    def new_group_chat(self):
+        """Maneja la creación de un nuevo chat grupal"""
+        self.clear_chat()  # Limpiar el área de chat cuando se inicia un nuevo chat grupal
+        # Aquí se puede añadir la lógica para manejar chats grupales en el futuro.
+
     def send_message(self):
         message = self.entry.get("1.0", tk.END).strip()
-        if message and self.xmpp:
+        if message and self.xmpp and self.target_user:
             self.entry.delete("1.0", tk.END)
-            asyncio.create_task(self.xmpp.handle_send_message(message))
+            asyncio.create_task(self.xmpp.handle_send_message(message, self.target_user))
 
     def display_message(self, message):
         self.text_area.config(state=tk.NORMAL)
