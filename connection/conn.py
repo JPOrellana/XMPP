@@ -22,7 +22,7 @@ class EchoBot(ClientXMPP):
             self.gui.root.update()  # Call update() on the root window
 
     async def handle_send_message(self, message):
-        self.send_msg(mto='ore21970-test1@alumchat.lol', mbody=message)
+        self.send_msg(mto='ore21970-te@alumchat.lol', mbody=message)
 
     def message(self, message):
         if message["type"] == "chat":
@@ -33,3 +33,10 @@ class EchoBot(ClientXMPP):
 
     def send_msg(self, mto: str, mbody: str):
         self.send_message(mto, mbody)
+
+def start_xmpp(gui):
+    xmpp = EchoBot('ore21970-te@alumchat.lol', 'pruebas', gui)
+    gui.xmpp = xmpp
+
+    xmpp.connect(disable_starttls=True, use_ssl=False)
+    asyncio.create_task(xmpp.process(forever=True))
