@@ -1,17 +1,10 @@
 import tkinter as tk
 from tkinter import scrolledtext
 import asyncio
-import sys
-import os
-
-# Añadir la ruta para importar conn
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from connection.conn import start_xmpp  # Importamos la función que inicia la conexión
 
 class ChatGUI:
-    def __init__(self):
-        self.xmpp = None  # La conexión XMPP se asignará después
+    def __init__(self, xmpp):
+        self.xmpp = xmpp
 
         self.root = tk.Tk()
         self.root.title("XMPP Chat")
@@ -39,9 +32,12 @@ class ChatGUI:
         self.text_area.see(tk.END)
 
     def run(self):
-        start_xmpp(self)  # Iniciamos la conexión cuando la GUI se ejecuta
         self.root.mainloop()
 
-if __name__ == '__main__':
-    gui = ChatGUI()
+def run_chat(xmpp):
+    gui = ChatGUI(xmpp)
     gui.run()
+
+if __name__ == "__main__":
+    # Este código no se ejecutará porque este archivo no será ejecutado directamente.
+    pass

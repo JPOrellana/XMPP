@@ -1,18 +1,13 @@
 import tkinter as tk
 from tkinter import messagebox
-from connection.conn import connect_to_server
 import asyncio
-
 import sys
 import os
 
-# Agregar la ruta absoluta al sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'connection')))
+# Ajuste del path para importar conn.py
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from conn import connect_to_server
-
-
-
+from connection.conn import start_xmpp  # Importamos la función que inicia la conexión
 
 class LoginGUI:
     def __init__(self):
@@ -41,23 +36,29 @@ class LoginGUI:
         self.login_button = tk.Button(self.root, text="Ingresar", command=self.login, width=15)
         self.login_button.pack(pady=20)
 
+    
     def login(self):
-        username = self.user_entry.get()
+        jid = self.user_entry.get()
         password = self.password_entry.get()
 
         try:
-            xmpp = connect_to_server(username, password)
-            self.root.after(2000, self.validate_login, xmpp)
+            xmpp = start_xmpp(jid, password, None)
+            asyncio.create_task(xmpp.process(forever=False))
+
+            # Validar la conexión de inmediato, sin esperar 2 segundos
+            self.validate_login(xmpp)
         except Exception as e:
             self.show_message("Credenciales incorrectas. No se puede conectar", error=True)
+
 
     def validate_login(self, xmpp):
         if xmpp.authenticated:
             self.show_message("Ingresó Correctamente", error=False)
-            self.root.after(2000, self.open_chat, xmpp)
+            asyncio.run(self.open_chat(xmpp))
         else:
             self.show_message("Credenciales incorrectas. No se puede conectar", error=True)
             xmpp.disconnect()
+
 
     def show_message(self, message, error=False):
         if error:
@@ -65,14 +66,10 @@ class LoginGUI:
         else:
             messagebox.showinfo("Éxito", message)
 
-    def open_chat(self, xmpp):
-        self.root.destroy()  # Cierra la ventana de login
-        import principal
+    async def open_chat(self, xmpp):
+        self.root.destroy()  # Cierra la ventana de login antes de abrir la nueva GUI
+        import principal  # Importamos principal.py solo si la autenticación es correcta
         principal.run_chat(xmpp)
 
     def run(self):
         self.root.mainloop()
-
-if __name__ == "__main__":
-    login_gui = LoginGUI()
-    login_gui.run()
