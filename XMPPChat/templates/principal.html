@@ -182,15 +182,15 @@
         };
 
         // Iniciar chat
-        document.getElementById('iniciarChat').onclick = function() {
+        document.getElementById('iniciarChat').onclick = async function() {
             const usuario = document.getElementById('nuevoChatUsuario').value;
             if (usuario) {
-                iniciarChat(usuario);
+                await iniciarChat(usuario);
             }
         };
 
         // Función para iniciar chat
-        function iniciarChat(usuario) {
+        async function iniciarChat(usuario) {
             if (!chats[usuario]) {
                 chats[usuario] = [];
             }
@@ -212,6 +212,15 @@
 
             // Cargar la conversación del nuevo chat
             cargarChat(usuario);
+
+            // Notificar al backend sobre el nuevo chat
+            await fetch('/iniciar_chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ usuario })
+            });
 
             // Cerrar el modal
             document.getElementById('nuevoChatModal').style.display = "none";
@@ -237,16 +246,15 @@
         }
 
         // Event listener para el botón de enviar mensaje
-        document.getElementById('sendMessageButton').onclick = function() {
+        document.getElementById('sendMessageButton').onclick = async function() {
             const message = document.getElementById('messageInput').value;
             if (message && currentChatUser) {
-                enviarMensaje(currentChatUser, message);
-                // recibirMensaje(currentChatUser, "Respuesta de prueba"); // Eliminar esta línea
+                await enviarMensaje(currentChatUser, message);
             }
         };
 
         // Función para enviar mensajes
-        function enviarMensaje(usuario, message) {
+        async function enviarMensaje(usuario, message) {
             if (!chats[usuario]) {
                 chats[usuario] = [];
             }
@@ -260,6 +268,15 @@
             messageContainer.appendChild(newMessage);
 
             document.getElementById('messageInput').value = ''; // Limpiar el input
+
+            // Enviar mensaje al backend
+            await fetch('/send_message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ usuario, message })
+            });
         }
 
         // Función para recibir mensajes

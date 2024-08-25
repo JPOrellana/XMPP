@@ -18,27 +18,41 @@ class TestClient(slixmpp.ClientXMPP):
         self.register_plugin('xep_0030')  # Service Discovery
         self.register_plugin('xep_0199')  # XMPP Ping
         self.auth_failed = False
+        self.destinatario = None  # Variable para almacenar el destinatario actual
 
     async def start(self, event):
         self.send_presence()
         await self.get_roster()
         print("Conexión exitosa y sesión iniciada.")
-        self.disconnect()
+        # No desconectamos aquí, porque queremos que la conexión se mantenga activa para enviar/recibir mensajes
 
     def message_handler(self, msg):
         if msg['type'] in ('chat', 'normal'):
             print(f"Mensaje recibido de {msg['from']}: {msg['body']}")
+            # Aquí podrías añadir lógica para enviar el mensaje recibido a la interfaz
 
     def failed_auth(self, event):
         print("Autenticación fallida.")
         self.auth_failed = True
         self.disconnect()
 
+    def set_destinatario(self, destinatario):
+        self.destinatario = destinatario
+
+    def send_message_to_destinatario(self, message):
+        if self.destinatario:
+            self.send_message(mto=self.destinatario, mbody=message, mtype='chat')
+            print(f"Mensaje enviado a {self.destinatario}: {message}")
+
 def run_xmpp_client(jid, password):
     xmpp = TestClient(jid, password)
     xmpp.connect(disable_starttls=True, use_ssl=False)
-    xmpp.process(forever=False)
-    return not xmpp.auth_failed
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(xmpp.start(None))  # Llamamos al método start de forma manual
+    return xmpp
+
+# Mantendremos el cliente XMPP globalmente para enviar mensajes desde cualquier parte de la app
+xmpp_client = None
 
 @app.route('/')
 def home():
@@ -46,6 +60,7 @@ def home():
 
 @app.route('/connect', methods=['POST'])
 def connect():
+    global xmpp_client
     data = request.json
     jid = data['jid']
     password = data['password']
@@ -54,9 +69,9 @@ def connect():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    success = run_xmpp_client(jid, password)
+    xmpp_client = run_xmpp_client(jid, password)
 
-    if success:
+    if not xmpp_client.auth_failed:
         # Redirigir a la página principal si la conexión es exitosa
         return jsonify({"status": "Conectado"}), 200
     else:
@@ -66,6 +81,30 @@ def connect():
 @app.route('/principal')
 def principal():
     return render_template('principal.html')
+
+@app.route('/iniciar_chat', methods=['POST'])
+def iniciar_chat():
+    global xmpp_client
+    data = request.json
+    usuario = data['usuario']
+    
+    if xmpp_client:
+        xmpp_client.set_destinatario(usuario)
+        return jsonify({"status": "Chat iniciado con " + usuario})
+    else:
+        return jsonify({"status": "Error", "message": "Cliente XMPP no conectado"}), 400
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    global xmpp_client
+    data = request.json
+    message = data['message']
+    
+    if xmpp_client:
+        xmpp_client.send_message_to_destinatario(message)
+        return jsonify({"status": "Mensaje enviado"})
+    else:
+        return jsonify({"status": "Error", "message": "Cliente XMPP no conectado"}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
