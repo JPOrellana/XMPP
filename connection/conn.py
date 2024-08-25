@@ -21,21 +21,25 @@ class EchoBot(ClientXMPP):
             await asyncio.sleep(0.001)  # Keep the event loop running
             self.gui.root.update()  # Call update() on the root window
 
-    async def handle_send_message(self, message, to):
-        self.send_msg(mto=to, mbody=message)
-        username = self.jid.split('@')[0]
-        self.gui.display_message(f"{username}\n{message}")  # Mostrar el mensaje en la GUI
+    def message(self, msg):
+        if msg["type"] in ("chat", "normal"):
+            sender = str(msg["from"]).split("/")[0]  # Eliminar la parte del recurso
+            body = msg["body"]
+            formatted_message = f"{sender.split('@')[0]}\n{body}"  # Formatear el mensaje
 
-    def message(self, message):
-        if message["type"] == "chat":
-            emitter = str(message["from"]).split('/')[0]
-            if self.gui.target_user and emitter == self.gui.target_user:
-                actual_name = emitter.split("/")[0]
-                message_body = message["body"]
-                self.gui.display_message(f"[{actual_name}]\n{message_body}")
+            if sender == self.jid.split("/")[0]:  # Si soy yo, enviar como "Yo"
+                self.gui.display_message(formatted_message, sender="Yo")
+            else:
+                self.gui.display_message(formatted_message, sender=sender)
+
+    async def handle_send_message(self, message, target_user):
+        self.send_msg(mto=target_user, mbody=message)
+        username = self.jid.split('@')[0]
+        formatted_message = f"{username}\n{message}"
+        self.gui.display_message(formatted_message, sender="Yo")  # Mostrar el mensaje en la GUI
 
     def send_msg(self, mto: str, mbody: str):
-        self.send_message(mto, mbody)
+        self.send_message(mto=mto, mbody=mbody)
 
 def start_xmpp(gui):
     xmpp = EchoBot('ore21970-te@alumchat.lol', 'pruebas', gui)
