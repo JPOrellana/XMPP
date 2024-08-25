@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página Principal</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .chat-container {
+            display: flex;
+            height: 100vh;
+        }
+        .chat-list {
+            width: 20%;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            overflow-y: auto;
+        }
+        .chat-content {
+            width: 80%;
+            display: flex;
+            flex-direction: column;
+        }
+        .message-container {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background-color: #ffffff;
+        }
+        .input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #dee2e6;
+            background-color: #f1f3f4;
+        }
+        .input-container input {
+            flex-grow: 1;
+            border-radius: 20px;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+        }
+        .input-container button {
+            margin-left: 10px;
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-list" id="chatList">
+            <!-- Aquí se mostrarán los chats -->
+        </div>
+        <div class="chat-content">
+            <div class="message-container" id="messageContainer">
+                <!-- Aquí se mostrarán los mensajes -->
+            </div>
+            <div class="input-container">
+                <input type="text" id="messageInput" placeholder="Escribe un mensaje...">
+                <button onclick="enviarMensaje(currentChat)">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentChat = null;
+        const chats = {};
+
+        function enviarMensaje(usuario) {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value;
+            if (message.trim() === '') return;
+
+            if (!chats[usuario]) {
+                chats[usuario] = [];
+            }
+
+            const msg = { sender: 'Yo', text: message };
+            chats[usuario].push(msg);
+
+            const messageContainer = document.getElementById('messageContainer');
+            const newMessage = document.createElement('div');
+            newMessage.innerHTML = `<strong>Yo:</strong><br>${message}`;
+            messageContainer.appendChild(newMessage);
+
+            messageInput.value = ''; // Limpiar el input
+
+            // Enviar el mensaje al servidor XMPP
+            fetch('/send_message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    recipient: usuario,
+                    message: message
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.status);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function abrirChat(usuario) {
+            currentChat = usuario;
+            const messageContainer = document.getElementById('messageContainer');
+            messageContainer.innerHTML = '';
+            if (chats[usuario]) {
+                chats[usuario].forEach(msg => {
+                    const newMessage = document.createElement('div');
+                    newMessage.innerHTML = `<strong>${msg.sender}:</strong><br>${msg.text}`;
+                    messageContainer.appendChild(newMessage);
+                });
+            }
+        }
+
+        function agregarChat(usuario) {
+            const chatList = document.getElementById('chatList');
+            const newChat = document.createElement('div');
+            newChat.innerHTML = `<strong>${usuario}</strong>`;
+            newChat.onclick = () => abrirChat(usuario);
+            chatList.appendChild(newChat);
+            abrirChat(usuario); // Abrir automáticamente el chat recién creado
+        }
+    </script>
+</body>
+</html>

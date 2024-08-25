@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import scrolledtext, Menu
+from tkinter import scrolledtext, Menu, messagebox
 import asyncio
 import sys
 import os
@@ -99,10 +99,10 @@ class ChatGUI:
             self.target_user = entry.get()
             if self.target_user:
                 if self.target_user in self.chats:
-                    tk.messagebox.showinfo("Chat Existente", "Ya existe un chat con este usuario.")
+                    messagebox.showinfo("Chat Existente", "Ya existe un chat con este usuario.")
                 else:
                     self.chats[self.target_user] = []  # Crear un nuevo chat si no existe
-                    self.chat_listbox.insert(tk.END, self.target_user.split('@')[0])  # Añadir el chat a la lista de chats sin el dominio
+                    self.chat_listbox.insert(tk.END, self.target_user)  # Añadir el chat a la lista de chats con el dominio completo
                     self.root.title(f"Chateando con {self.target_user}")
                 popup.destroy()
                 self.load_chat()  # Cargar el chat recién creado o seleccionado
@@ -144,7 +144,7 @@ class ChatGUI:
     def get_full_user(self, display_name):
         """Recupera el nombre de usuario completo basado en el nombre mostrado"""
         for user in self.chats:
-            if display_name == user.split('@')[0]:
+            if display_name == user:
                 return user
         return display_name  # Si no se encuentra, devuelve el nombre mostrado tal cual
 
