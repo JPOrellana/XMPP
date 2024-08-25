@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 import asyncio
+import slixmpp
 import sys
-from prueba import send_message
 
 # Forzar el uso de SelectorEventLoop en Windows
 if sys.platform == 'win32':
@@ -9,8 +9,36 @@ if sys.platform == 'win32':
 
 app = Flask(__name__)
 
-current_jid = None
-current_password = None
+class TestClient(slixmpp.ClientXMPP):
+    def __init__(self, jid, password):
+        super().__init__(jid, password)
+        self.add_event_handler("session_start", self.start)
+        self.add_event_handler("message", self.message_handler)
+        self.add_event_handler("failed_auth", self.failed_auth)
+        self.register_plugin('xep_0030')  # Service Discovery
+        self.register_plugin('xep_0199')  # XMPP Ping
+        self.auth_failed = False
+
+    async def start(self, event):
+        self.send_presence()
+        await self.get_roster()
+        print("Conexión exitosa y sesión iniciada.")
+        self.disconnect()
+
+    def message_handler(self, msg):
+        if msg['type'] in ('chat', 'normal'):
+            print(f"Mensaje recibido de {msg['from']}: {msg['body']}")
+
+    def failed_auth(self, event):
+        print("Autenticación fallida.")
+        self.auth_failed = True
+        self.disconnect()
+
+def run_xmpp_client(jid, password):
+    xmpp = TestClient(jid, password)
+    xmpp.connect(disable_starttls=True, use_ssl=False)
+    xmpp.process(forever=False)
+    return not xmpp.auth_failed
 
 @app.route('/')
 def home():
@@ -18,40 +46,22 @@ def home():
 
 @app.route('/connect', methods=['POST'])
 def connect():
-    global current_jid, current_password
     data = request.json
     jid = data['jid']
     password = data['password']
 
-    current_jid = jid
-    current_password = password
-
+    # Ejecutar el cliente XMPP en un nuevo hilo de eventos
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    try:
-        loop.run_until_complete(send_message(jid, password, None, None))
-        return redirect(url_for('principal'))
-    except Exception as e:
-        print(f"Error al conectar: {e}")
-        return jsonify({"status": "Error"}), 500
+    success = run_xmpp_client(jid, password)
 
-@app.route('/send_message', methods=['POST'])
-def send_message_route():
-    global current_jid, current_password
-    data = request.json
-    recipient = data['recipient']
-    message = data['message']
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        loop.run_until_complete(send_message(current_jid, current_password, recipient, message))
-        return jsonify({"status": "Mensaje enviado"}), 200
-    except Exception as e:
-        print(f"Error al enviar mensaje: {e}")
-        return jsonify({"status": "Error"}), 500
+    if success:
+        # Redirigir a la página principal si la conexión es exitosa
+        return jsonify({"status": "Conectado"}), 200
+    else:
+        # Devolver un error si la autenticación falla
+        return jsonify({"status": "Error"}), 401
 
 @app.route('/principal')
 def principal():

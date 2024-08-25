@@ -4,73 +4,249 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Página Principal</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
-        .chat-container {
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
             display: flex;
+            flex-direction: column;
             height: 100vh;
         }
+
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .header div {
+            cursor: pointer;
+        }
+
+        .chat-container {
+            display: flex;
+            flex: 1;
+        }
+
         .chat-list {
             width: 20%;
-            background-color: #f8f9fa;
-            border-right: 1px solid #dee2e6;
+            background-color: #f4f4f4;
+            padding: 10px;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
             overflow-y: auto;
         }
-        .chat-content {
-            width: 80%;
+
+        .chat-list div {
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+
+        .chat-list div.active {
+            background-color: #ddd;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 10px;
             display: flex;
             flex-direction: column;
         }
-        .message-container {
-            flex-grow: 1;
-            padding: 15px;
+
+        .chat-messages .messages {
+            flex: 1;
             overflow-y: auto;
-            background-color: #ffffff;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            margin-bottom: 10px;
         }
-        .input-container {
+
+        .chat-messages .input-container {
             display: flex;
-            padding: 10px;
-            border-top: 1px solid #dee2e6;
-            background-color: #f1f3f4;
+            align-items: center;
         }
-        .input-container input {
-            flex-grow: 1;
-            border-radius: 20px;
+
+        .chat-messages input[type="text"] {
+            flex: 1;
             padding: 10px;
-            border: 1px solid #dee2e6;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-right: 10px;
         }
-        .input-container button {
-            margin-left: 10px;
+
+        .chat-messages button {
             padding: 10px 20px;
-            border-radius: 20px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .chat-messages button:hover {
+            background-color: #4cae4c;
+        }
+
+        /* Estilos para el modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 300px;
+            border-radius: 8px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
+    <div class="header">
+        <div id="nuevoChat">Nuevo chat</div>
+        <div>Chat Grupal</div>
+        <div>Agregar Contacto</div>
+        <div>Detalle de Contacto</div>
+        <div>Mostrar todos los contactos</div>
+    </div>
+
     <div class="chat-container">
         <div class="chat-list" id="chatList">
-            <!-- Aquí se mostrarán los chats -->
+            <!-- Lista de chats -->
         </div>
-        <div class="chat-content">
-            <div class="message-container" id="messageContainer">
-                <!-- Aquí se mostrarán los mensajes -->
+        <div class="chat-messages">
+            <div class="messages" id="messageContainer">
+                <!-- Mensajes se mostrarán aquí -->
             </div>
             <div class="input-container">
-                <input type="text" id="messageInput" placeholder="Escribe un mensaje...">
-                <button onclick="enviarMensaje(currentChat)">Enviar</button>
+                <input type="text" id="messageInput" placeholder="Escribe tu mensaje aquí...">
+                <button id="sendMessageButton">Enviar</button>
             </div>
         </div>
     </div>
 
+    <!-- Modal para Nuevo Chat -->
+    <div id="nuevoChatModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Ingresa usuario</h2>
+            <input type="text" id="nuevoChatUsuario" placeholder="Usuario...">
+            <button id="iniciarChat">Iniciar</button>
+        </div>
+    </div>
+
     <script>
-        let currentChat = null;
-        const chats = {};
+        let currentChatUser = null;
+        let chats = {}; // Almacenará los mensajes de cada chat
 
-        function enviarMensaje(usuario) {
-            const messageInput = document.getElementById('messageInput');
-            const message = messageInput.value;
-            if (message.trim() === '') return;
+        // Mostrar el modal
+        document.getElementById('nuevoChat').onclick = function() {
+            document.getElementById('nuevoChatModal').style.display = "block";
+        };
 
+        // Cerrar el modal
+        document.querySelector('.close').onclick = function() {
+            document.getElementById('nuevoChatModal').style.display = "none";
+        };
+
+        // Iniciar chat
+        document.getElementById('iniciarChat').onclick = function() {
+            const usuario = document.getElementById('nuevoChatUsuario').value;
+            if (usuario) {
+                iniciarChat(usuario);
+            }
+        };
+
+        // Función para iniciar chat
+        function iniciarChat(usuario) {
+            if (!chats[usuario]) {
+                chats[usuario] = [];
+            }
+
+            currentChatUser = usuario;
+
+            // Agregar el nuevo chat al contenedor de la izquierda si no existe
+            if (!document.getElementById('chat_' + usuario)) {
+                const chatList = document.getElementById('chatList');
+                const newChat = document.createElement('div');
+                newChat.textContent = usuario;
+                newChat.id = 'chat_' + usuario;
+                newChat.classList.add('chat-item');
+                newChat.onclick = function() {
+                    cargarChat(usuario);
+                };
+                chatList.appendChild(newChat);
+            }
+
+            // Cargar la conversación del nuevo chat
+            cargarChat(usuario);
+
+            // Cerrar el modal
+            document.getElementById('nuevoChatModal').style.display = "none";
+        }
+
+        // Función para cargar un chat
+        function cargarChat(usuario) {
+            currentChatUser = usuario;
+
+            // Marcar el chat como activo
+            document.querySelectorAll('.chat-list div').forEach(div => div.classList.remove('active'));
+            document.getElementById('chat_' + usuario).classList.add('active');
+
+            // Mostrar los mensajes del chat seleccionado
+            const messageContainer = document.getElementById('messageContainer');
+            messageContainer.innerHTML = ''; // Limpiar mensajes anteriores
+
+            chats[usuario].forEach(msg => {
+                const newMessage = document.createElement('div');
+                newMessage.innerHTML = `<strong>${msg.sender}:</strong><br>${msg.text}`;
+                messageContainer.appendChild(newMessage);
+            });
+        }
+
+        // Event listener para el botón de enviar mensaje
+        document.getElementById('sendMessageButton').onclick = function() {
+            const message = document.getElementById('messageInput').value;
+            if (message && currentChatUser) {
+                enviarMensaje(currentChatUser, message);
+                // recibirMensaje(currentChatUser, "Respuesta de prueba"); // Eliminar esta línea
+            }
+        };
+
+        // Función para enviar mensajes
+        function enviarMensaje(usuario, message) {
             if (!chats[usuario]) {
                 chats[usuario] = [];
             }
@@ -83,49 +259,26 @@
             newMessage.innerHTML = `<strong>Yo:</strong><br>${message}`;
             messageContainer.appendChild(newMessage);
 
-            messageInput.value = ''; // Limpiar el input
-
-            // Enviar el mensaje al servidor XMPP
-            fetch('/send_message', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    recipient: usuario,
-                    message: message
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log(data.status);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
+            document.getElementById('messageInput').value = ''; // Limpiar el input
         }
 
-        function abrirChat(usuario) {
-            currentChat = usuario;
-            const messageContainer = document.getElementById('messageContainer');
-            messageContainer.innerHTML = '';
-            if (chats[usuario]) {
-                chats[usuario].forEach(msg => {
-                    const newMessage = document.createElement('div');
-                    newMessage.innerHTML = `<strong>${msg.sender}:</strong><br>${msg.text}`;
-                    messageContainer.appendChild(newMessage);
-                });
+        // Función para recibir mensajes
+        function recibirMensaje(usuario, message) {
+            if (!chats[usuario]) {
+                chats[usuario] = [];
+            }
+
+            const msg = { sender: usuario, text: message };
+            chats[usuario].push(msg);
+
+            if (usuario === currentChatUser) {
+                const messageContainer = document.getElementById('messageContainer');
+                const newMessage = document.createElement('div');
+                newMessage.innerHTML = `<strong>${usuario}:</strong><br>${message}`;
+                messageContainer.appendChild(newMessage);
             }
         }
 
-        function agregarChat(usuario) {
-            const chatList = document.getElementById('chatList');
-            const newChat = document.createElement('div');
-            newChat.innerHTML = `<strong>${usuario}</strong>`;
-            newChat.onclick = () => abrirChat(usuario);
-            chatList.appendChild(newChat);
-            abrirChat(usuario); // Abrir automáticamente el chat recién creado
-        }
     </script>
 </body>
 </html>
