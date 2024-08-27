@@ -15,6 +15,7 @@ class XMPPClient(ClientXMPP):
         self.contact_jid = None  # Para almacenar el JID del contacto que se desea agregar
         self.contacts_callback = None  # Callback para manejar la lista de contactos
         self.jid = jid  # Guardar el JID del usuario para excluirlo de la lista de contactos
+        self.detail_callback = None  # Callback para manejar los detalles de un contacto
         self.set_handlers()
 
     def set_handlers(self):
@@ -46,6 +47,15 @@ class XMPPClient(ClientXMPP):
             if jid != self.jid:  # Excluir el propio JID
                 contacts.append(jid)
         return contacts
+
+    def get_contact_details(self, contact_jid):
+        """Devuelve el estado de presencia de un contacto específico."""
+        presence = self.client_roster.presence(contact_jid)
+        if presence:
+            for resource, pres in presence.items():
+                show = pres.get('show', 'chat')
+                return show  # Devuelve el primer estado de presencia encontrado
+        return "Desconocido"
 
     def failed_auth(self, event):
         print("Fallo en la autenticación: No se pudo autenticar con el servidor XMPP.")
@@ -99,4 +109,23 @@ def add_contact(jid, password, contact_jid, auth_callback):
         loop.run_until_complete(xmpp.process(forever=False))
 
     thread = threading.Thread(target=run_xmpp_with_contact)
+    thread.start()
+
+def get_contact_details(jid, password, contact_jid, detail_callback):
+    def run_xmpp_for_details():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        xmpp = XMPPClient(jid, password, lambda x: None)
+        xmpp.connect(disable_starttls=True, use_ssl=False)
+
+        async def process_details():
+            await xmpp.get_roster()
+            detail = xmpp.get_contact_details(contact_jid)
+            detail_callback(contact_jid, detail)
+            xmpp.disconnect()
+
+        loop.run_until_complete(process_details())
+
+    thread = threading.Thread(target=run_xmpp_for_details)
     thread.start()

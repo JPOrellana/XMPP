@@ -7,7 +7,7 @@ import asyncio
 # Añadir la ruta para importar conn
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from connection.conn import start_xmpp, add_contact  # Importamos las funciones que inician la conexión y agregan contactos
+from connection.conn import start_xmpp, add_contact, get_contact_details  # Importamos las funciones necesarias
 
 class ChatGUI:
     def __init__(self):
@@ -35,11 +35,9 @@ class ChatGUI:
 
         # Crear el menú "Menú" en la barra de tareas
         self.menu = Menu(self.menubar, tearoff=0)
-        self.menu.add_command(label="Nuevo Chat", command=self.new_chat, state=tk.DISABLED)
         self.menu.add_command(label="Chat Grupal", command=self.new_group_chat, state=tk.DISABLED)
         self.menu.add_command(label="Detalle Contacto", command=self.contact_detail, state=tk.DISABLED)
         self.menu.add_command(label="Agregar Contacto", command=self.add_contact_gui, state=tk.DISABLED)
-        self.menu.add_command(label="Mostrar Todos los Contactos", command=self.show_all_contacts, state=tk.DISABLED)
         self.menubar.add_cascade(label="Menú", menu=self.menu, state=tk.DISABLED)  # Inicialmente deshabilitado
 
         # Frame principal para contenido dinámico
@@ -109,11 +107,9 @@ class ChatGUI:
         self.menubar.entryconfig("Cerrar Sesión", state=tk.NORMAL)  # Desbloquear 'Cerrar Sesión'
 
         # Habilitar opciones de chat en el menú
-        self.menu.entryconfig("Nuevo Chat", state=tk.NORMAL)
         self.menu.entryconfig("Chat Grupal", state=tk.NORMAL)
         self.menu.entryconfig("Detalle Contacto", state=tk.NORMAL)
         self.menu.entryconfig("Agregar Contacto", state=tk.NORMAL)
-        self.menu.entryconfig("Mostrar Todos los Contactos", state=tk.NORMAL)
 
     def show_chat_interface(self):
         """Mostrar la interfaz de chat después de un inicio de sesión exitoso."""
@@ -159,47 +155,51 @@ class ChatGUI:
         self.text_area.delete('1.0', tk.END)
         self.text_area.config(state=tk.DISABLED)
 
-    def new_chat(self):
-        """Maneja la creación de un nuevo chat abriendo una ventana emergente personalizada"""
-        # Crear la ventana emergente
-        popup = tk.Toplevel(self.root)
-        popup.title("Nuevo Chat")
-        popup.geometry("400x200")  # Tamaño de la ventana emergente
-        popup.configure(bg='#e5e5e5')
-
-        # Etiqueta
-        label = tk.Label(popup, text="Ingrese Usuario:", font=("Helvetica", 12), bg='#e5e5e5')
-        label.pack(pady=20)
-
-        # Entrada de texto
-        entry = tk.Entry(popup, font=("Helvetica", 12))
-        entry.pack(pady=5, padx=20, fill=tk.X)
-
-        # Botón para iniciar chat
-        def on_confirm():
-            self.target_user = entry.get()
-            if self.target_user:
-                if self.target_user in self.chats:
-                    messagebox.showinfo("Chat Existente", "Ya existe un chat con este usuario.")
-                else:
-                    self.chats[self.target_user] = []  # Crear un nuevo chat si no existe
-                    self.chat_listbox.insert(tk.END, self.target_user)  # Añadir el chat a la lista de chats con el dominio completo
-                    self.root.title(f"Chateando con {self.target_user}")
-                popup.destroy()
-                self.load_chat()  # Cargar el chat recién creado o seleccionado
-
-        button = tk.Button(popup, text="Iniciar", bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat", command=on_confirm)
-        button.pack(pady=5)
-
     def new_group_chat(self):
         """Maneja la creación de un nuevo chat grupal"""
         self.clear_chat()  # Limpiar el área de chat cuando se inicia un nuevo chat grupal
         # Aquí se puede añadir la lógica para manejar chats grupales en el futuro.
 
     def contact_detail(self):
-        """Muestra detalles del contacto"""
-        # Lógica para detalle de contacto
-        pass
+        """Muestra detalles del contacto al ingresar un JID."""
+        popup = tk.Toplevel(self.root)
+        popup.title("Detalle Contacto")
+        popup.geometry("300x200")
+        popup.configure(bg='#e5e5e5')
+
+        tk.Label(popup, text="Ingrese JID del contacto:", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
+        jid_entry = tk.Entry(popup, font=("Helvetica", 12))
+        jid_entry.pack(pady=5, padx=20, fill=tk.X)
+
+        def on_consult():
+            contact_jid = jid_entry.get().strip()
+            if contact_jid:
+                get_contact_details(self.jid, self.password, contact_jid, self.show_contact_details)
+                popup.destroy()
+            else:
+                messagebox.showerror("Error", "El JID no puede estar vacío.")
+
+        tk.Button(popup, text="Consultar", command=on_consult, bg='#0078D7', fg='white', font=("Helvetica", 10)).pack(pady=20)
+
+    def show_contact_details(self, contact_jid, presence_status):
+        """Muestra una ventana emergente con el detalle del contacto."""
+        popup = tk.Toplevel(self.root)
+        popup.title("Detalle del Contacto")
+        popup.geometry("300x150")
+        popup.configure(bg='#e5e5e5')
+
+        status_map = {
+            "chat": "Disponible",
+            "away": "Ausente",
+            "xa": "No Disponible",
+            "dnd": "Ocupado"
+        }
+
+        status_text = status_map.get(presence_status, "Desconocido")
+
+        tk.Label(popup, text=f"JID: {contact_jid}", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
+        tk.Label(popup, text=f"Estado: {status_text}", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
+
 
     def add_contact_gui(self):
         """Añadir un nuevo contacto desde la GUI"""
@@ -232,21 +232,6 @@ class ChatGUI:
     def clear_contacts(self):
         """Limpiar la lista de contactos en la GUI"""
         self.chat_listbox.delete(0, tk.END)
-
-    def show_all_contacts(self):
-        """Mostrar todos los contactos en una ventana emergente"""
-        popup = tk.Toplevel(self.root)
-        popup.title("Todos los Contactos")
-        popup.geometry("300x400")
-        popup.configure(bg='#e5e5e5')
-
-        tk.Label(popup, text="Contactos:", font=("Helvetica", 14), bg='#e5e5e5').pack(pady=10)
-
-        listbox = tk.Listbox(popup, font=("Helvetica", 12))
-        listbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        for contact in self.contacts:
-            listbox.insert(tk.END, contact)
 
     def load_contacts(self, contacts):
         """Cargar contactos en la lista de la interfaz."""
