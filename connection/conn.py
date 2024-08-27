@@ -1,7 +1,9 @@
 import asyncio
 from slixmpp import ClientXMPP
+from slixmpp.exceptions import IqError, IqTimeout  # Corrige la importación de las excepciones
 import sys
 import threading
+import xml.etree.ElementTree as ET  # Asegúrate de importar esto para manejar el XML
 
 # Forzar el uso de SelectorEventLoop en Windows
 if sys.platform == 'win32':
@@ -83,6 +85,34 @@ class XMPPClient(ClientXMPP):
         self.send_presence_subscription(pto=presence['from'].bare)
         print(f"Solicitud de suscripción de {presence['from'].bare} aceptada")
 
+    async def delete_my_account(self):
+        """
+        Eliminar la cuenta del usuario del servidor enviando una IQ con una solicitud de 'remove'.
+        """
+        try:
+            # Crear una nueva IQ
+            iq = self.make_iq_set()
+
+            # Construir manualmente el elemento 'query' con la solicitud de 'remove'
+            query = ET.Element('{jabber:iq:register}query')
+            remove = ET.SubElement(query, 'remove')
+
+            # Adjuntar el elemento 'query' al IQ
+            iq.append(query)
+
+            # Enviar la IQ y esperar la respuesta
+            result = await iq.send()
+
+            print("SUCCESS: Cuenta eliminada exitosamente del servidor")
+            return True
+
+        except IqError as e:
+            print(f"ERROR: Fallo al eliminar la cuenta: {e.iq['error']['text']}")
+            return False
+        except IqTimeout:
+            print("ERROR: Timeout mientras se intentaba eliminar la cuenta")
+            return False
+
 def start_xmpp(jid, password, auth_callback, contacts_callback=None):
     def run_xmpp():
         loop = asyncio.new_event_loop()  # Crear un nuevo bucle de eventos
@@ -128,4 +158,23 @@ def get_contact_details(jid, password, contact_jid, detail_callback):
         loop.run_until_complete(process_details())
 
     thread = threading.Thread(target=run_xmpp_for_details)
+    thread.start()
+
+def delete_xmpp_account(jid, password, callback):
+    """Función para eliminar la cuenta de XMPP"""
+    def run_xmpp_delete():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        xmpp = XMPPClient(jid, password, lambda x: None)
+        xmpp.connect(disable_starttls=True, use_ssl=False)
+
+        async def delete_and_disconnect():
+            success = await xmpp.delete_my_account()
+            xmpp.disconnect()
+            callback(success)
+
+        loop.run_until_complete(delete_and_disconnect())
+
+    thread = threading.Thread(target=run_xmpp_delete)
     thread.start()

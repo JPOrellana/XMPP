@@ -7,7 +7,7 @@ import asyncio
 # Añadir la ruta para importar conn
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from connection.conn import start_xmpp, add_contact, get_contact_details  # Importamos las funciones necesarias
+from connection.conn import start_xmpp, add_contact, get_contact_details, delete_xmpp_account  # Importamos las funciones necesarias
 
 class ChatGUI:
     def __init__(self):
@@ -33,6 +33,9 @@ class ChatGUI:
         # Añadir la opción "Cerrar Sesión" a la barra de tareas, inicialmente deshabilitada
         self.menubar.add_command(label="Cerrar Sesión", command=self.logout, state=tk.DISABLED)
 
+        # Añadir la opción "Eliminar Cuenta" a la barra de tareas, deshabilitada al inicio
+        self.menubar.add_command(label="Eliminar Cuenta", command=self.delete_account_gui, state=tk.DISABLED)
+
         # Crear el menú "Menú" en la barra de tareas
         self.menu = Menu(self.menubar, tearoff=0)
         self.menu.add_command(label="Chat Grupal", command=self.new_group_chat, state=tk.DISABLED)
@@ -56,6 +59,7 @@ class ChatGUI:
         # Deshabilitar el menú durante el inicio de sesión
         self.menubar.entryconfig("Menú", state=tk.DISABLED)
         self.menubar.entryconfig("Cerrar Sesión", state=tk.DISABLED)
+        self.menubar.entryconfig("Eliminar Cuenta", state=tk.DISABLED)  # Deshabilitar la opción 'Eliminar Cuenta'
 
         # Etiqueta y entradas para JID y contraseña
         tk.Label(self.main_frame, text="JID:", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
@@ -105,6 +109,7 @@ class ChatGUI:
         self.menubar.entryconfig("Menú", state=tk.NORMAL)
         self.menubar.entryconfig("Iniciar Sesión", state=tk.DISABLED)
         self.menubar.entryconfig("Cerrar Sesión", state=tk.NORMAL)  # Desbloquear 'Cerrar Sesión'
+        self.menubar.entryconfig("Eliminar Cuenta", state=tk.NORMAL)  # Habilitar 'Eliminar Cuenta'
 
         # Habilitar opciones de chat en el menú
         self.menu.entryconfig("Chat Grupal", state=tk.NORMAL)
@@ -148,6 +153,31 @@ class ChatGUI:
         # Botón de envío al lado derecho del cuadro de entrada de texto
         self.send_button = tk.Button(self.entry_frame, text="Enviar", command=self.send_message, width=10, bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat")
         self.send_button.pack(side=tk.RIGHT)
+
+    def delete_account_gui(self):
+        """GUI para eliminar la cuenta logueada"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Eliminar Cuenta")
+        popup.geometry("300x200")
+        popup.configure(bg='#e5e5e5')
+
+        tk.Label(popup, text="¿Seguro que desea eliminar la cuenta?", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=20)
+
+        def on_delete():
+            confirm = messagebox.askyesno("Confirmación", "Esta acción es irreversible. ¿Desea continuar?")
+            if confirm:
+                delete_xmpp_account(self.jid, self.password, self.delete_account_callback)
+                popup.destroy()
+
+        tk.Button(popup, text="Eliminar", command=on_delete, bg='#D9534F', fg='white', font=("Helvetica", 10)).pack(pady=20)
+
+    def delete_account_callback(self, success):
+        """Callback después de intentar eliminar una cuenta"""
+        if success:
+            messagebox.showinfo("Cuenta Eliminada", "La cuenta ha sido eliminada con éxito.")
+            self.logout()
+        else:
+            messagebox.showerror("Error", "No se pudo eliminar la cuenta.")
 
     def clear_chat(self):
         """Limpia el área de texto del chat"""
@@ -296,6 +326,7 @@ class ChatGUI:
         self.menubar.entryconfig("Menú", state=tk.DISABLED)
         self.menubar.entryconfig("Cerrar Sesión", state=tk.DISABLED)
         self.menubar.entryconfig("Iniciar Sesión", state=tk.NORMAL)
+        self.menubar.entryconfig("Eliminar Cuenta", state=tk.DISABLED)  # Deshabilitar la opción 'Eliminar Cuenta'
 
         print("Desconectado del servidor XMPP y de vuelta al login.")
 
