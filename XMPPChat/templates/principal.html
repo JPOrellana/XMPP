@@ -116,6 +116,12 @@
             border: 1px solid #888;
             width: 300px;
             border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            text-align: center;
         }
 
         .close {
@@ -123,6 +129,7 @@
             float: right;
             font-size: 28px;
             font-weight: bold;
+            margin-top: -10px;
         }
 
         .close:hover,
@@ -131,15 +138,37 @@
             text-decoration: none;
             cursor: pointer;
         }
+
+        input[type="text"], button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #4cae4c;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <div id="nuevoChat">Nuevo chat</div>
+        <div id="agregarContacto">Agregar Contacto</div>
         <div>Chat Grupal</div>
-        <div>Agregar Contacto</div>
         <div>Detalle de Contacto</div>
         <div>Mostrar todos los contactos</div>
+        <div id="cerrarSesion">Cerrar sesión</div>
     </div>
 
     <div class="chat-container">
@@ -167,19 +196,39 @@
         </div>
     </div>
 
+    <!-- Modal para Agregar Contacto -->
+    <div id="agregarContactoModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Agregar Contacto</h2>
+            <input type="text" id="contactJid" placeholder="JID del contacto...">
+            <button id="agregarContactoButton">Agregar</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script>
+        const socket = io();
+
         let currentChatUser = null;
         let chats = {}; // Almacenará los mensajes de cada chat
 
-        // Mostrar el modal
+        // Mostrar el modal para nuevo chat
         document.getElementById('nuevoChat').onclick = function() {
             document.getElementById('nuevoChatModal').style.display = "block";
         };
 
-        // Cerrar el modal
-        document.querySelector('.close').onclick = function() {
-            document.getElementById('nuevoChatModal').style.display = "none";
+        // Mostrar el modal para agregar contacto
+        document.getElementById('agregarContacto').onclick = function() {
+            document.getElementById('agregarContactoModal').style.display = "block";
         };
+
+        // Cerrar los modales
+        document.querySelectorAll('.close').forEach(closeButton => {
+            closeButton.onclick = function() {
+                document.querySelectorAll('.modal').forEach(modal => modal.style.display = "none");
+            };
+        });
 
         // Iniciar chat
         document.getElementById('iniciarChat').onclick = async function() {
@@ -295,6 +344,81 @@
                 messageContainer.appendChild(newMessage);
             }
         }
+
+        // Manejar el evento de agregar contacto
+        document.getElementById('agregarContactoButton').onclick = async function() {
+            const contactJid = document.getElementById('contactJid').value;
+            if (contactJid) {
+                const response = await fetch('/add_contact', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ contact_jid: contactJid })
+                });
+
+                if (response.ok) {
+                    alert('Contacto agregado correctamente');
+                    // Podrías agregar el contacto a la lista de contactos en la interfaz
+                } else {
+                    alert('Error al agregar contacto');
+                }
+
+                // Cerrar el modal
+                document.getElementById('agregarContactoModal').style.display = "none";
+            }
+        };
+
+        // Manejar el evento de cerrar sesión
+        document.getElementById('cerrarSesion').onclick = async function() {
+            const response = await fetch('/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.ok) {
+                window.location.href = "/";
+            } else {
+                alert("Error al cerrar sesión.");
+            }
+        };
+
+        // WebSockets para manejar las actualizaciones en tiempo real
+        socket.on('new_contact', function(data) {
+            const contactJid = data.contact_jid;
+            if (!document.getElementById('chat_' + contactJid)) {
+                const chatList = document.getElementById('chatList');
+                const newChat = document.createElement('div');
+                newChat.textContent = contactJid;
+                newChat.id = 'chat_' + contactJid;
+                newChat.classList.add('chat-item');
+                newChat.onclick = function() {
+                    cargarChat(contactJid);
+                };
+                chatList.appendChild(newChat);
+            }
+        });
+
+        socket.on('update_contacts', function(data) {
+            const contacts = data.contacts;
+            const chatList = document.getElementById('chatList');
+            chatList.innerHTML = ''; // Limpiar la lista actual
+
+            contacts.forEach(contactJid => {
+                if (!document.getElementById('chat_' + contactJid)) {
+                    const newChat = document.createElement('div');
+                    newChat.textContent = contactJid;
+                    newChat.id = 'chat_' + contactJid;
+                    newChat.classList.add('chat-item');
+                    newChat.onclick = function() {
+                        cargarChat(contactJid);
+                    };
+                    chatList.appendChild(newChat);
+                }
+            });
+        });
 
     </script>
 </body>

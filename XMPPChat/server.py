@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask_socketio import SocketIO, emit
 import asyncio
 import slixmpp
 import sys
@@ -8,6 +9,8 @@ if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your_secret_key'
+socketio = SocketIO(app)
 
 class TestClient(slixmpp.ClientXMPP):
     def __init__(self, jid, password):
@@ -24,7 +27,11 @@ class TestClient(slixmpp.ClientXMPP):
         self.send_presence()
         await self.get_roster()
         print("Conexión exitosa y sesión iniciada.")
-        # No desconectamos aquí, porque queremos que la conexión se mantenga activa para enviar/recibir mensajes
+        # Aquí recuperamos y mostramos la lista de contactos
+        roster = self.client_roster
+        contacts = [jid for jid in roster]
+        # Emitir la lista de contactos al cliente a través de WebSockets
+        socketio.emit('update_contacts', {'contacts': contacts})
 
     def message_handler(self, msg):
         if msg['type'] in ('chat', 'normal'):
@@ -43,6 +50,12 @@ class TestClient(slixmpp.ClientXMPP):
         if self.destinatario:
             self.send_message(mto=self.destinatario, mbody=message, mtype='chat')
             print(f"Mensaje enviado a {self.destinatario}: {message}")
+
+    def add_contact(self, contact_jid):
+        self.send_presence_subscription(pto=contact_jid)
+        print(f"Solicitud de suscripción enviada a {contact_jid}")
+        # Notificar al cliente de la adición del nuevo contacto
+        socketio.emit('new_contact', {'contact_jid': contact_jid})
 
 def run_xmpp_client(jid, password):
     xmpp = TestClient(jid, password)
@@ -106,5 +119,27 @@ def send_message():
     else:
         return jsonify({"status": "Error", "message": "Cliente XMPP no conectado"}), 400
 
+@app.route('/add_contact', methods=['POST'])
+def add_contact():
+    global xmpp_client
+    data = request.json
+    contact_jid = data['contact_jid']
+    
+    if xmpp_client:
+        xmpp_client.add_contact(contact_jid)
+        return jsonify({"status": "Contacto agregado"})
+    else:
+        return jsonify({"status": "Error", "message": "Cliente XMPP no conectado"}), 400
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    global xmpp_client
+    
+    if xmpp_client:
+        xmpp_client.disconnect(wait=True)  # Desconectar el XMPP
+        xmpp_client = None  # Eliminar la instancia global
+    
+    return jsonify({"status": "Sesión cerrada"}), 200
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)

@@ -1,58 +1,45 @@
 import asyncio
 from slixmpp import ClientXMPP
-import base64
+import sys
+import threading
 
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+# Forzar el uso de SelectorEventLoop en Windows
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-class EchoBot(ClientXMPP):
-    def __init__(self, jid, password, gui):
-        ClientXMPP.__init__(self, jid, password)
-        self.gui = gui
+class XMPPClient(ClientXMPP):
+    def __init__(self, jid, password, auth_callback):
+        super().__init__(jid=jid, password=password)
+        self.auth_callback = auth_callback
+        self.authenticated = False
+        self.set_handlers()
 
-        self.add_event_handler("session_start", self.session_start)
-        self.add_event_handler("message", self.receive_message)
+    def set_handlers(self):
+        self.add_event_handler("session_start", self.start)
+        self.add_event_handler("failed_auth", self.failed_auth)
 
-    def session_start(self, event):
-        self.send_presence()
-        self.get_roster()
-        asyncio.create_task(self.gui_update_loop())
+    async def start(self, event):
+        print("Conexión exitosa: Autenticado con el servidor XMPP.")
+        self.send_presence(pshow="chat", pstatus="Connected")
+        await self.get_roster()
+        self.authenticated = True
+        self.auth_callback(True)
 
-    async def gui_update_loop(self):
-        while True:
-            await asyncio.sleep(0.001)  # Mantiene el loop de eventos de la GUI en ejecución
-            self.gui.root.update()  # Llama a update() en la ventana raíz
+    def failed_auth(self, event):
+        print("Fallo en la autenticación: No se pudo autenticar con el servidor XMPP.")
+        self.authenticated = False
+        self.auth_callback(False)
+        self.disconnect()
 
-    def receive_message(self, msg):
-        """Maneja la recepción de mensajes y archivos"""
-        if msg["type"] == "chat":
-            emitter = str(msg["from"]).split("/")[0]  # Obtenemos el JID completo sin el recurso
-            message_body = msg["body"]
+def start_xmpp(jid, password, auth_callback):
+    def run_xmpp():
+        loop = asyncio.new_event_loop()  # Crear un nuevo bucle de eventos
+        asyncio.set_event_loop(loop)  # Establecer este bucle como el bucle de eventos del hilo actual
 
-            print(f"Mensaje recibido de: {emitter}")
-            print(f"Usuario objetivo en GUI: {self.gui.target_user}")
+        xmpp = XMPPClient(jid, password, auth_callback)
+        xmpp.connect(disable_starttls=True, use_ssl=False)
+        
+        loop.run_until_complete(xmpp.process(forever=False))  # Ejecutar el bucle de eventos hasta que se complete el proceso
 
-            if message_body.startswith("file://"):
-                # Manejo de archivo...
-                pass
-            else:
-                formatted_message = f"{emitter}\n{message_body}"
-
-            if emitter == self.gui.target_user:
-                print("El mensaje será mostrado en la GUI.")
-                self.gui.display_message(formatted_message, sender=emitter)
-            else:
-                print(f"Mensaje de otro usuario ignorado: {emitter}")
-
-
-    async def handle_send_message(self, message, target_user):
-        self.send_msg(mto=target_user, mbody=message)
-
-    def send_msg(self, mto: str, mbody: str):
-        self.send_message(mto=mto, mbody=mbody)
-
-def start_xmpp(gui):
-    xmpp = EchoBot('ore21970-te@alumchat.lol', 'pruebas', gui)
-    gui.xmpp = xmpp
-
-    xmpp.connect(disable_starttls=True, use_ssl=False)
-    asyncio.create_task(xmpp.process(forever=True))
+    thread = threading.Thread(target=run_xmpp)
+    thread.start()
