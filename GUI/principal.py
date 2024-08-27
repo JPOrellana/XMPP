@@ -285,7 +285,8 @@ class ChatGUI:
     def logout(self):
         """Desconectar del servidor XMPP y volver al login."""
         if self.xmpp:
-            self.xmpp.disconnect(wait=True)  # Desconectar del servidor XMPP
+            # Intentar desconectar inmediatamente
+            self.xmpp.disconnect(wait=True)  # 'wait=True' asegura que se espera a que se complete la desconexión
             self.xmpp = None
 
         # Limpiar la pantalla y volver al login
@@ -295,6 +296,9 @@ class ChatGUI:
         self.menubar.entryconfig("Menú", state=tk.DISABLED)
         self.menubar.entryconfig("Cerrar Sesión", state=tk.DISABLED)
         self.menubar.entryconfig("Iniciar Sesión", state=tk.NORMAL)
+
+        print("Desconectado del servidor XMPP y de vuelta al login.")
+
 
     def run(self):
         self.root.mainloop()
