@@ -1,9 +1,9 @@
 import asyncio
 from slixmpp import ClientXMPP
-from slixmpp.exceptions import IqError, IqTimeout  # Corrige la importación de las excepciones
+from slixmpp.exceptions import IqError, IqTimeout
 import sys
 import threading
-import xml.etree.ElementTree as ET  # Asegúrate de importar esto para manejar el XML
+import xml.etree.ElementTree as ET
 
 # Forzar el uso de SelectorEventLoop en Windows
 if sys.platform == 'win32':
@@ -113,6 +113,29 @@ class XMPPClient(ClientXMPP):
             print("ERROR: Timeout mientras se intentaba eliminar la cuenta")
             return False
 
+    async def create_account(self):
+        """
+        Crear una nueva cuenta en el servidor enviando una IQ con los detalles de registro.
+        """
+        try:
+            iq = self.make_iq_set()
+            query = ET.Element('{jabber:iq:register}query')
+            username = ET.SubElement(query, 'username')
+            password = ET.SubElement(query, 'password')
+            username.text = self.boundjid.user
+            password.text = self.password
+            iq.append(query)
+
+            await iq.send()
+            print("SUCCESS: Cuenta creada exitosamente")
+            return True
+        except IqError as e:
+            print(f"ERROR: Fallo al crear la cuenta: {e.iq['error']['text']}")
+            return False
+        except IqTimeout:
+            print("ERROR: Timeout mientras se intentaba crear la cuenta")
+            return False
+
 def start_xmpp(jid, password, auth_callback, contacts_callback=None):
     def run_xmpp():
         loop = asyncio.new_event_loop()  # Crear un nuevo bucle de eventos
@@ -177,4 +200,23 @@ def delete_xmpp_account(jid, password, callback):
         loop.run_until_complete(delete_and_disconnect())
 
     thread = threading.Thread(target=run_xmpp_delete)
+    thread.start()
+
+def create_xmpp_account(jid, password, callback):
+    """Función para crear una nueva cuenta en XMPP"""
+    def run_xmpp_create():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        xmpp = XMPPClient(jid, password, lambda x: None)
+        xmpp.connect(disable_starttls=True, use_ssl=False)
+
+        async def create_and_disconnect():
+            success = await xmpp.create_account()
+            xmpp.disconnect()
+            callback(success)
+
+        loop.run_until_complete(create_and_disconnect())
+
+    thread = threading.Thread(target=run_xmpp_create)
     thread.start()

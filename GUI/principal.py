@@ -7,7 +7,7 @@ import asyncio
 # Añadir la ruta para importar conn
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from connection.conn import start_xmpp, add_contact, get_contact_details, delete_xmpp_account  # Importamos las funciones necesarias
+from connection.conn import start_xmpp, add_contact, get_contact_details, delete_xmpp_account, create_xmpp_account  # Importamos las funciones necesarias
 
 class ChatGUI:
     def __init__(self):
@@ -29,12 +29,9 @@ class ChatGUI:
 
         # Añadir la opción "Iniciar Sesión" a la barra de tareas
         self.menubar.add_command(label="Iniciar Sesión", command=self.show_login_screen)
-
-        # Añadir la opción "Cerrar Sesión" a la barra de tareas, inicialmente deshabilitada
         self.menubar.add_command(label="Cerrar Sesión", command=self.logout, state=tk.DISABLED)
-
-        # Añadir la opción "Eliminar Cuenta" a la barra de tareas, deshabilitada al inicio
         self.menubar.add_command(label="Eliminar Cuenta", command=self.delete_account_gui, state=tk.DISABLED)
+        self.menubar.add_command(label="Crear Usuario", command=self.create_account_gui)  # Nueva opción de creación de usuario
 
         # Crear el menú "Menú" en la barra de tareas
         self.menu = Menu(self.menubar, tearoff=0)
@@ -59,7 +56,7 @@ class ChatGUI:
         # Deshabilitar el menú durante el inicio de sesión
         self.menubar.entryconfig("Menú", state=tk.DISABLED)
         self.menubar.entryconfig("Cerrar Sesión", state=tk.DISABLED)
-        self.menubar.entryconfig("Eliminar Cuenta", state=tk.DISABLED)  # Deshabilitar la opción 'Eliminar Cuenta'
+        self.menubar.entryconfig("Eliminar Cuenta", state=tk.DISABLED)
 
         # Etiqueta y entradas para JID y contraseña
         tk.Label(self.main_frame, text="JID:", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
@@ -72,6 +69,39 @@ class ChatGUI:
 
         self.login_button = tk.Button(self.main_frame, text="Iniciar Sesión", bg='#0078D7', fg='white', font=("Helvetica", 10), relief="flat", command=self.on_login)
         self.login_button.pack(pady=20)
+
+    def create_account_gui(self):
+        """GUI para crear una nueva cuenta"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Crear Usuario")
+        popup.geometry("300x250")
+        popup.configure(bg='#e5e5e5')
+
+        tk.Label(popup, text="Usuario@servidor:", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
+        jid_entry = tk.Entry(popup, font=("Helvetica", 12))
+        jid_entry.pack(pady=5, padx=20, fill=tk.X)
+
+        tk.Label(popup, text="Contraseña:", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
+        password_entry = tk.Entry(popup, font=("Helvetica", 12), show="*")
+        password_entry.pack(pady=5, padx=20, fill=tk.X)
+
+        def on_create():
+            jid = jid_entry.get().strip()
+            password = password_entry.get().strip()
+            if jid and password:
+                create_xmpp_account(jid, password, self.create_account_callback)
+                popup.destroy()
+            else:
+                messagebox.showerror("Error", "El JID y la contraseña no pueden estar vacíos.")
+
+        tk.Button(popup, text="Crear", command=on_create, bg='#5cb85c', fg='white', font=("Helvetica", 10)).pack(pady=20)
+
+    def create_account_callback(self, success):
+        """Callback después de intentar crear una cuenta"""
+        if success:
+            messagebox.showinfo("Éxito", "Cuenta creada exitosamente.")
+        else:
+            messagebox.showerror("Error", "No se pudo crear la cuenta.")
 
     def on_login(self):
         jid = self.jid_entry.get()
@@ -230,7 +260,6 @@ class ChatGUI:
         tk.Label(popup, text=f"JID: {contact_jid}", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
         tk.Label(popup, text=f"Estado: {status_text}", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
 
-
     def add_contact_gui(self):
         """Añadir un nuevo contacto desde la GUI"""
         # Crear una ventana emergente para ingresar el JID del contacto
@@ -329,7 +358,6 @@ class ChatGUI:
         self.menubar.entryconfig("Eliminar Cuenta", state=tk.DISABLED)  # Deshabilitar la opción 'Eliminar Cuenta'
 
         print("Desconectado del servidor XMPP y de vuelta al login.")
-
 
     def run(self):
         self.root.mainloop()
