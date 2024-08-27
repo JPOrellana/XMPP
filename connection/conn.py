@@ -13,6 +13,8 @@ class XMPPClient(ClientXMPP):
         self.auth_callback = auth_callback
         self.authenticated = False
         self.contact_jid = None  # Para almacenar el JID del contacto que se desea agregar
+        self.contacts_callback = None  # Callback para manejar la lista de contactos
+        self.jid = jid  # Guardar el JID del usuario para excluirlo de la lista de contactos
         self.set_handlers()
 
     def set_handlers(self):
@@ -32,6 +34,19 @@ class XMPPClient(ClientXMPP):
         if self.contact_jid:
             await self.add_contact(self.contact_jid)
 
+        # Obtener y devolver todos los contactos después de la autenticación
+        if self.contacts_callback:
+            contacts = self.get_all_contacts()
+            self.contacts_callback(contacts)
+
+    def get_all_contacts(self):
+        """Devuelve una lista con todos los contactos del usuario, excluyendo el propio JID."""
+        contacts = []
+        for jid in self.client_roster.keys():
+            if jid != self.jid:  # Excluir el propio JID
+                contacts.append(jid)
+        return contacts
+
     def failed_auth(self, event):
         print("Fallo en la autenticación: No se pudo autenticar con el servidor XMPP.")
         self.authenticated = False
@@ -42,6 +57,12 @@ class XMPPClient(ClientXMPP):
         """Envío de solicitud de suscripción."""
         self.send_presence_subscription(pto=contact_jid)
         print(f"Solicitud de suscripción enviada a {contact_jid}")
+        
+        # Actualizar la lista de contactos en tiempo real
+        await self.get_roster()
+        if self.contacts_callback:
+            contacts = self.get_all_contacts()
+            self.contacts_callback(contacts)
 
     def on_subscribed(self, presence):
         """Confirmación de la suscripción."""
@@ -52,12 +73,13 @@ class XMPPClient(ClientXMPP):
         self.send_presence_subscription(pto=presence['from'].bare)
         print(f"Solicitud de suscripción de {presence['from'].bare} aceptada")
 
-def start_xmpp(jid, password, auth_callback):
+def start_xmpp(jid, password, auth_callback, contacts_callback=None):
     def run_xmpp():
         loop = asyncio.new_event_loop()  # Crear un nuevo bucle de eventos
         asyncio.set_event_loop(loop)  # Establecer este bucle como el bucle de eventos del hilo actual
 
         xmpp = XMPPClient(jid, password, auth_callback)
+        xmpp.contacts_callback = contacts_callback  # Asignar el callback de contactos
         xmpp.connect(disable_starttls=True, use_ssl=False)
         
         loop.run_until_complete(xmpp.process(forever=False))  # Ejecutar el bucle de eventos hasta que se complete el proceso

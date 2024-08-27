@@ -16,6 +16,7 @@ class ChatGUI:
         self.password = None  # Almacena la contraseña del usuario que inició sesión
         self.chats = {}  # Diccionario para almacenar los chats y sus mensajes
         self.target_user = None  # Variable para almacenar el usuario objetivo
+        self.contacts = []  # Almacena la lista de contactos
 
         self.root = tk.Tk()
         self.root.title("XMPP Chat")
@@ -82,7 +83,7 @@ class ChatGUI:
 
     def try_login(self, jid, password):
         # Ejecutar el procesamiento de mensajes de XMPP directamente en el loop principal
-        start_xmpp(jid, password, self.handle_auth_result)
+        start_xmpp(jid, password, self.handle_auth_result, self.load_contacts)
 
     def handle_auth_result(self, success):
         if success:
@@ -216,24 +217,42 @@ class ChatGUI:
             contact_jid = jid_entry.get().strip()
             if contact_jid:
                 # Utilizar las credenciales almacenadas para agregar el contacto
-                add_contact(self.jid, self.password, contact_jid, self.handle_add_contact_result)
-                messagebox.showinfo("Contacto Agregado", f"Se envió la solicitud de suscripción a {contact_jid}")
+                add_contact(self.jid, self.password, contact_jid, self.update_contacts)
                 popup.destroy()
             else:
                 messagebox.showerror("Error", "El JID no puede estar vacío.")
 
         tk.Button(popup, text="Agregar", command=on_add, bg='#0078D7', fg='white', font=("Helvetica", 10)).pack(pady=20)
 
-    def handle_add_contact_result(self, success):
+    def update_contacts(self, success):
         if success:
-            messagebox.showinfo("Éxito", "Contacto agregado correctamente.")
-        else:
-            messagebox.showerror("Error", "No se pudo agregar el contacto.")
+            self.clear_contacts()
+            start_xmpp(self.jid, self.password, self.handle_auth_result, self.load_contacts)
+
+    def clear_contacts(self):
+        """Limpiar la lista de contactos en la GUI"""
+        self.chat_listbox.delete(0, tk.END)
 
     def show_all_contacts(self):
-        """Mostrar todos los contactos"""
-        # Lógica para mostrar todos los contactos
-        pass
+        """Mostrar todos los contactos en una ventana emergente"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Todos los Contactos")
+        popup.geometry("300x400")
+        popup.configure(bg='#e5e5e5')
+
+        tk.Label(popup, text="Contactos:", font=("Helvetica", 14), bg='#e5e5e5').pack(pady=10)
+
+        listbox = tk.Listbox(popup, font=("Helvetica", 12))
+        listbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+
+        for contact in self.contacts:
+            listbox.insert(tk.END, contact)
+
+    def load_contacts(self, contacts):
+        """Cargar contactos en la lista de la interfaz."""
+        self.contacts = contacts
+        for contact in self.contacts:
+            self.chat_listbox.insert(tk.END, contact)
 
     def load_chat(self, event=None):
         """Carga los mensajes del chat seleccionado en el área de mensajes"""
