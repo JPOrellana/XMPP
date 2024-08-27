@@ -2,15 +2,18 @@ import tkinter as tk
 from tkinter import scrolledtext, Menu, messagebox
 import sys
 import os
+import asyncio
 
 # Añadir la ruta para importar conn
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from connection.conn import start_xmpp  # Importamos la función que inicia la conexión
+from connection.conn import start_xmpp, add_contact  # Importamos las funciones que inician la conexión y agregan contactos
 
 class ChatGUI:
     def __init__(self):
         self.xmpp = None  # La conexión XMPP se asignará después
+        self.jid = None  # Almacena el JID del usuario que inició sesión
+        self.password = None  # Almacena la contraseña del usuario que inició sesión
         self.chats = {}  # Diccionario para almacenar los chats y sus mensajes
         self.target_user = None  # Variable para almacenar el usuario objetivo
 
@@ -34,7 +37,7 @@ class ChatGUI:
         self.menu.add_command(label="Nuevo Chat", command=self.new_chat, state=tk.DISABLED)
         self.menu.add_command(label="Chat Grupal", command=self.new_group_chat, state=tk.DISABLED)
         self.menu.add_command(label="Detalle Contacto", command=self.contact_detail, state=tk.DISABLED)
-        self.menu.add_command(label="Agregar Contacto", command=self.add_contact, state=tk.DISABLED)
+        self.menu.add_command(label="Agregar Contacto", command=self.add_contact_gui, state=tk.DISABLED)
         self.menu.add_command(label="Mostrar Todos los Contactos", command=self.show_all_contacts, state=tk.DISABLED)
         self.menubar.add_cascade(label="Menú", menu=self.menu, state=tk.DISABLED)  # Inicialmente deshabilitado
 
@@ -71,6 +74,8 @@ class ChatGUI:
         jid = self.jid_entry.get()
         password = self.password_entry.get()
         if jid and password:
+            self.jid = jid  # Almacenar el JID del usuario autenticado
+            self.password = password  # Almacenar la contraseña del usuario autenticado
             # Deshabilitar el botón mientras se espera la autenticación
             self.login_button.config(state=tk.DISABLED)
             self.root.after(100, self.try_login(jid, password))
@@ -195,10 +200,35 @@ class ChatGUI:
         # Lógica para detalle de contacto
         pass
 
-    def add_contact(self):
-        """Añadir un nuevo contacto"""
-        # Lógica para agregar contacto
-        pass
+    def add_contact_gui(self):
+        """Añadir un nuevo contacto desde la GUI"""
+        # Crear una ventana emergente para ingresar el JID del contacto
+        popup = tk.Toplevel(self.root)
+        popup.title("Agregar Contacto")
+        popup.geometry("300x200")
+        popup.configure(bg='#e5e5e5')
+
+        tk.Label(popup, text="Ingrese JID del contacto:", font=("Helvetica", 12), bg='#e5e5e5').pack(pady=10)
+        jid_entry = tk.Entry(popup, font=("Helvetica", 12))
+        jid_entry.pack(pady=5, padx=20, fill=tk.X)
+
+        def on_add():
+            contact_jid = jid_entry.get().strip()
+            if contact_jid:
+                # Utilizar las credenciales almacenadas para agregar el contacto
+                add_contact(self.jid, self.password, contact_jid, self.handle_add_contact_result)
+                messagebox.showinfo("Contacto Agregado", f"Se envió la solicitud de suscripción a {contact_jid}")
+                popup.destroy()
+            else:
+                messagebox.showerror("Error", "El JID no puede estar vacío.")
+
+        tk.Button(popup, text="Agregar", command=on_add, bg='#0078D7', fg='white', font=("Helvetica", 10)).pack(pady=20)
+
+    def handle_add_contact_result(self, success):
+        if success:
+            messagebox.showinfo("Éxito", "Contacto agregado correctamente.")
+        else:
+            messagebox.showerror("Error", "No se pudo agregar el contacto.")
 
     def show_all_contacts(self):
         """Mostrar todos los contactos"""
