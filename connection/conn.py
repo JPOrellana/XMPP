@@ -11,6 +11,7 @@ if sys.platform == 'win32':
 
 class XMPPClient(ClientXMPP):
     def __init__(self, jid, password, auth_callback):
+        # Constructor de la clase XMPPClient. Se inicializa con JID, contraseña y un callback para autenticación.
         super().__init__(jid=jid, password=password)
         self.auth_callback = auth_callback
         self.authenticated = False
@@ -18,20 +19,22 @@ class XMPPClient(ClientXMPP):
         self.contacts_callback = None  # Callback para manejar la lista de contactos
         self.jid = jid  # Guardar el JID del usuario para excluirlo de la lista de contactos
         self.detail_callback = None  # Callback para manejar los detalles de un contacto
-        self.set_handlers()
+        self.set_handlers()  # Configurar los manejadores de eventos
 
     def set_handlers(self):
-        self.add_event_handler("session_start", self.start)
-        self.add_event_handler("failed_auth", self.failed_auth)
-        self.add_event_handler("presence_subscribed", self.on_subscribed)
-        self.add_event_handler("presence_subscribe", self.on_subscribe)
+        # Asignar manejadores de eventos específicos para diferentes situaciones
+        self.add_event_handler("session_start", self.start)  # Evento al iniciar sesión
+        self.add_event_handler("failed_auth", self.failed_auth)  # Evento en caso de fallo de autenticación
+        self.add_event_handler("presence_subscribed", self.on_subscribed)  # Evento cuando se confirma la suscripción
+        self.add_event_handler("presence_subscribe", self.on_subscribe)  # Evento al recibir una solicitud de suscripción
 
     async def start(self, event):
+        # Método que se ejecuta al iniciar sesión
         print("Conexión exitosa: Autenticado con el servidor XMPP.")
-        self.send_presence(pshow="chat", pstatus="Connected")
-        await self.get_roster()
+        self.send_presence(pshow="chat", pstatus="Connected")  # Enviar presencia como conectado
+        await self.get_roster()  # Obtener la lista de contactos
         self.authenticated = True
-        self.auth_callback(True)
+        self.auth_callback(True)  # Ejecutar el callback de autenticación exitosa
 
         # Si hay un contacto para agregar, enviar la solicitud de suscripción
         if self.contact_jid:
@@ -55,15 +58,16 @@ class XMPPClient(ClientXMPP):
         presence = self.client_roster.presence(contact_jid)
         if presence:
             for resource, pres in presence.items():
-                show = pres.get('show', 'chat')
+                show = pres.get('show', 'chat')  # Obtener el estado de presencia, por defecto 'chat'
                 return show  # Devuelve el primer estado de presencia encontrado
         return "Desconocido"
 
     def failed_auth(self, event):
+        # Método que se ejecuta cuando falla la autenticación
         print("Fallo en la autenticación: No se pudo autenticar con el servidor XMPP.")
         self.authenticated = False
-        self.auth_callback(False)
-        self.disconnect()
+        self.auth_callback(False)  # Ejecutar el callback de fallo de autenticación
+        self.disconnect()  # Desconectar del servidor
 
     async def add_contact(self, contact_jid):
         """Envío de solicitud de suscripción."""
@@ -90,7 +94,7 @@ class XMPPClient(ClientXMPP):
         Eliminar la cuenta del usuario del servidor enviando una IQ con una solicitud de 'remove'.
         """
         try:
-            # Crear una nueva IQ
+            # Crear una nueva IQ (consulta)
             iq = self.make_iq_set()
 
             # Construir manualmente el elemento 'query' con la solicitud de 'remove'
@@ -136,6 +140,7 @@ class XMPPClient(ClientXMPP):
             print("ERROR: Timeout mientras se intentaba crear la cuenta")
             return False
 
+# Función para iniciar el cliente XMPP en un hilo separado
 def start_xmpp(jid, password, auth_callback, contacts_callback=None):
     def run_xmpp():
         loop = asyncio.new_event_loop()  # Crear un nuevo bucle de eventos
@@ -150,6 +155,7 @@ def start_xmpp(jid, password, auth_callback, contacts_callback=None):
     thread = threading.Thread(target=run_xmpp)
     thread.start()
 
+# Función para agregar un contacto a través de un hilo separado
 def add_contact(jid, password, contact_jid, auth_callback):
     def run_xmpp_with_contact():
         loop = asyncio.new_event_loop()
@@ -164,6 +170,7 @@ def add_contact(jid, password, contact_jid, auth_callback):
     thread = threading.Thread(target=run_xmpp_with_contact)
     thread.start()
 
+# Función para obtener detalles de un contacto específico
 def get_contact_details(jid, password, contact_jid, detail_callback):
     def run_xmpp_for_details():
         loop = asyncio.new_event_loop()
@@ -183,8 +190,8 @@ def get_contact_details(jid, password, contact_jid, detail_callback):
     thread = threading.Thread(target=run_xmpp_for_details)
     thread.start()
 
+# Función para eliminar una cuenta XMPP
 def delete_xmpp_account(jid, password, callback):
-    """Función para eliminar la cuenta de XMPP"""
     def run_xmpp_delete():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -202,8 +209,8 @@ def delete_xmpp_account(jid, password, callback):
     thread = threading.Thread(target=run_xmpp_delete)
     thread.start()
 
+# Función para crear una cuenta XMPP
 def create_xmpp_account(jid, password, callback):
-    """Función para crear una nueva cuenta en XMPP"""
     def run_xmpp_create():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
